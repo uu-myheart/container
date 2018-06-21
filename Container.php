@@ -9,6 +9,6 @@ class Container // implements ArrayAccess, ContainerInterface
 {
 	public function hello()
 	{
-		echo 'Hello, DI';
+		echo 'Hello, DI!';
 	}
 }
