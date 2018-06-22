@@ -217,28 +217,55 @@ class Container implements ArrayAccess, ContainerInterface
 		return $this->resolve($abstract);
 	}
 
+    /**
+     * abstract是否被绑定
+     * @param string $id
+     * @return bool
+     */
 	public function has($id)
 	{
-		
+		return isset($this->bindings[$id]) ||
+                isset($this->instances[$id]) ||
+                isset($this->aliases[$id]);
 	}
 
+    /**
+     * 从容器获得实例
+     * @param mixed $offset
+     * @return mixed|object
+     * @throws \ReflectionException
+     */
 	public function offsetGet($offset)
 	{
 		return $this->get($offset);
 	}
 
+    /**
+     * 删除绑定
+     * @param mixed $offset
+     */
 	public function offsetUnset($offset)
 	{
-		
+        unset($this->bindings[$offset], $this->instances[$offset], $this->aliases[$offset]);
 	}
 
+    /**
+     * 绑定
+     * @param mixed $offset
+     * @param mixed $value
+     */
 	public function offsetSet($offset, $value)
 	{
 		return $this->bind($offset, $value);
 	}
 
+    /**
+     * abstract是否被绑定
+     * @param mixed $offset
+     * @return bool
+     */
 	public function offsetExists($offset)
 	{
-		
-	}
+		return $this->has($offset);
+    }
 }
