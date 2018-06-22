@@ -46,9 +46,24 @@ class Container implements ArrayAccess, ContainerInterface
 		$this->bindings[$abstract] = compact('concrete', 'shared');
 	}
 
+    /**
+     * 单例绑定
+     * @param $abstract
+     * @param null $concrete
+     */
     public function singleton($abstract, $concrete = null)
     {
         $this->bind($abstract, $concrete, true);
+	}
+
+    /**
+     * 设置别名
+     * @param $alias
+     * @param $abstract
+     */
+    public function alias($alias, $abstract)
+    {
+        $this->aliases[$alias] = $abstract;
 	}
 
     /**
@@ -63,8 +78,16 @@ class Container implements ArrayAccess, ContainerInterface
 		};
 	}
 
+    /**
+     * 从容器中resolve传入的类型
+     * @param $abstract
+     * @return mixed|object
+     * @throws Exception
+     */
 	protected function resolve($abstract)
 	{
+	    $abstract = $this->restoreFromAlias($abstract);
+
         $concrete = $this->getConcrete($abstract);
 
         if (isset($this->instances[$abstract])) {
@@ -80,6 +103,22 @@ class Container implements ArrayAccess, ContainerInterface
         return $object;
 	}
 
+    /**
+     * 从别名获取abstract
+     * @param $alias
+     * @return mixed
+     */
+    protected function restoreFromAlias($alias)
+    {
+        return $this->aliases[$alias] ?? $alias;
+	}
+
+    /**
+     * 实例化一个concrete
+     * @param $concrete
+     * @return mixed|object
+     * @throws \ReflectionException
+     */
     protected function build($concrete)
     {
         if ($concrete instanceof Closure) {
@@ -105,6 +144,11 @@ class Container implements ArrayAccess, ContainerInterface
         return $reflector->newInstanceArgs($dependencies);
 	}
 
+    /**
+     * 获取concrete
+     * @param $abstract
+     * @return mixed
+     */
     protected function getConcrete($abstract)
     {
         if (isset($this->bindings[$abstract])) {
@@ -114,6 +158,11 @@ class Container implements ArrayAccess, ContainerInterface
         return $abstract;
 	}
 
+    /**
+     * 是否单例
+     * @param $abstract
+     * @return bool
+     */
     protected function isShared($abstract)
     {
         return isset($this->instances[$abstract]) || (
