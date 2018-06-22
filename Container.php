@@ -257,6 +257,19 @@ class Container implements ArrayAccess, ContainerInterface
     }
 
     /**
+     * Call the given Closure / class@method and inject its dependencies.
+     *
+     * @param  callable|string  $callback
+     * @param  array  $parameters
+     * @param  string|null  $defaultMethod
+     * @return mixed
+     */
+    public function call($callback, array $parameters = [], $defaultMethod = null)
+    {
+        return MethodBinding::call($this, $callback, $parameters, $defaultMethod);
+    }
+
+    /**
      * Get the method binding for the given method.
      *
      * @param  string  $method
