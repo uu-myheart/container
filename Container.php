@@ -11,6 +11,7 @@ use Psr\Container\ContainerInterface;
 
 class Container implements ArrayAccess, ContainerInterface
 {
+    protected static $instance;
     /**
      * 存放绑定关系
      * @var array
@@ -205,6 +206,29 @@ class Container implements ArrayAccess, ContainerInterface
 
 		throw new Exception("[\$$parameter->name]参数没有默认值, 无法解决依赖关系");
 	}
+
+    /**
+     * 存放容器实例
+     * @param $container
+     * @return mixed
+     */
+    public static function setInstance($container)
+    {
+        return static::$instance = $container;
+    }
+
+    /**
+     * 获取容器实例
+     * @return mixed
+     */
+    public function getInstance()
+    {
+        if (is_null(static::$instance)) {
+            static::$instance = new static;
+        }
+
+        return static::$instance;
+    }
 
     /**
      * 从容器获得实例
