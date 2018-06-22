@@ -67,9 +67,17 @@ class Container implements ArrayAccess, ContainerInterface
 	{
         $concrete = $this->getConcrete($abstract);
 
+        if (isset($this->instances[$abstract])) {
+            return $this->instances[$abstract];
+        }
 
+        $object = $this->build($concrete);
 
-        return $this->build($concrete);
+        if ($this->isShared($abstract)) {
+            $this->instances[$abstract] = $object;
+        }
+
+        return $object;
 	}
 
     protected function build($concrete)
@@ -104,6 +112,13 @@ class Container implements ArrayAccess, ContainerInterface
         }
 
         return $abstract;
+	}
+
+    protected function isShared($abstract)
+    {
+        return isset($this->instances[$abstract]) || (
+            isset($this->bindings[$abstract]['shared']) && $this->bindings[$abstract]['shared'] === true
+        );
 	}
 
     /**
