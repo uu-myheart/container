@@ -49,14 +49,27 @@ class Container implements ArrayAccess, ContainerInterface
      */
 	public function bind($abstract, $concrete = null, $shared = false)
 	{
+        $this->dropStale($abstract);
+
 		if (is_null($concrete)) $concrete = $abstract;
 
 		if (! $concrete instanceof Closure) {
-			$concrete = $this->getClosure($concrete);
+			$concrete = $this->getClosure($abstract, $concrete);
 		}
 
 		$this->bindings[$abstract] = compact('concrete', 'shared');
 	}
+
+    /**
+     * Drop all of the stale instances and aliases.
+     *
+     * @param  string  $abstract
+     * @return void
+     */
+    protected function dropStale($abstract)
+    {
+        unset($this->instances[$abstract], $this->aliases[$abstract]);
+    }
 
     /**
      * 单例绑定
@@ -67,6 +80,20 @@ class Container implements ArrayAccess, ContainerInterface
     {
         $this->bind($abstract, $concrete, true);
 	}
+
+    /**
+     * 注册一个实例到容器上
+     *
+     * @param  string  $abstract
+     * @param  mixed   $instance
+     * @return $this
+     */
+    public function instance($abstract, $instance)
+    {
+        $this->instances[$abstract] = $instance;
+
+        return $this;
+    }
 
     /**
      * 设置别名
@@ -83,9 +110,13 @@ class Container implements ArrayAccess, ContainerInterface
      * @param $concrete
      * @return Closure
      */
-	protected function getClosure($concrete)
+	protected function getClosure($abstract, $concrete)
 	{
-		return function ($container) use ($concrete) {
+		return function ($container) use ($abstract, $concrete) {
+            if ($abstract == $concrete) {
+                return $container->build($concrete);
+            }
+
 			return $container->resolve($concrete);	
 		};
 	}
@@ -98,10 +129,11 @@ class Container implements ArrayAccess, ContainerInterface
      */
 	protected function resolve($abstract)
 	{
-	    $abstract = $this->restoreFromAlias($abstract);
+	    $abstract = $this->ifAlias($abstract);
 
         $concrete = $this->getConcrete($abstract);
 
+        // Return instance if singleton.
         if (isset($this->instances[$abstract])) {
             return $this->instances[$abstract];
         }
@@ -113,16 +145,6 @@ class Container implements ArrayAccess, ContainerInterface
         }
 
         return $object;
-	}
-
-    /**
-     * 从别名获取abstract
-     * @param $alias
-     * @return mixed
-     */
-    protected function restoreFromAlias($alias)
-    {
-        return $this->aliases[$alias] ?? $alias;
 	}
 
     /**
@@ -155,6 +177,16 @@ class Container implements ArrayAccess, ContainerInterface
 
         return $reflector->newInstanceArgs($dependencies);
 	}
+
+    /**
+     * 从别名获取abstract
+     * @param $alias
+     * @return mixed
+     */
+    protected function ifAlias($alias)
+    {
+        return $this->aliases[$alias] ?? $alias;
+    }
 
     /**
      * 获取concrete
