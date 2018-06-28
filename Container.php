@@ -16,6 +16,7 @@ class Container implements ArrayAccess, ContainerInterface
      * @var
      */
     protected static $instance;
+
     /**
      * 存放绑定关系
      * @var array
