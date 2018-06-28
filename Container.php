@@ -90,6 +90,8 @@ class Container implements ArrayAccess, ContainerInterface
      */
     public function instance($abstract, $instance)
     {
+        $abstract = $this->ifAlias($abstract);
+        
         $this->instances[$abstract] = $instance;
 
         return $this;
