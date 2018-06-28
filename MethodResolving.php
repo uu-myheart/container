@@ -7,7 +7,7 @@ use ReflectionMethod;
 use ReflectionFunction;
 use InvalidArgumentException;
 
-class MethodBinding
+class MethodResolving
 {
     /**
      * Call the given Closure / class@method and inject its dependencies.

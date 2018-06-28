@@ -130,7 +130,6 @@ class Container implements ArrayAccess, ContainerInterface
 	protected function resolve($abstract)
 	{
 	    $abstract = $this->ifAlias($abstract);
-
         $concrete = $this->getConcrete($abstract);
 
         // Return instance if singleton.
@@ -185,7 +184,9 @@ class Container implements ArrayAccess, ContainerInterface
      */
     protected function ifAlias($alias)
     {
-        return $this->aliases[$alias] ?? $alias;
+        return isset($this->aliases[$alias])
+            ? $this->ifAlias($this->aliases[$alias])
+            : $alias;
     }
 
     /**
@@ -298,7 +299,7 @@ class Container implements ArrayAccess, ContainerInterface
      */
     public function call($callback, array $parameters = [], $defaultMethod = null)
     {
-        return MethodBinding::call($this, $callback, $parameters, $defaultMethod);
+        return MethodResolving::call($this, $callback, $parameters, $defaultMethod);
     }
 
     /**
