@@ -293,6 +293,19 @@ class Container implements ArrayAccess, ContainerInterface
     }
 
     /**
+     * Determine if the given abstract type has been bound.
+     *
+     * @param  string  $abstract
+     * @return bool
+     */
+    public function bound($abstract)
+    {
+        return isset($this->bindings[$abstract]) ||
+               isset($this->instances[$abstract]) ||
+               isset($this->aliases[$abstract]);
+    }
+
+    /**
      * Call the given Closure / class@method and inject its dependencies.
      *
      * @param  callable|string  $callback
