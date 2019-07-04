@@ -13,27 +13,38 @@ class Container implements ArrayAccess, ContainerInterface
 {
     /**
      * 容器实例
+     *
      * @var
      */
     protected static $instance;
 
     /**
      * 存放绑定关系
+     *
      * @var array
      */
-	protected $bindings = [];
+    protected $bindings = [];
 
     /**
      * 别名
+     *
      * @var array
      */
-	protected $aliases = [];
+    protected $aliases = [];
 
     /**
      * 存放单例实例
+     *
      * @var array
      */
-	protected $instances = [];
+    protected $instances = [];
+
+    /**
+     * Hooks before resolve an abstract or instance.
+     * 
+     * @var array 
+     */
+    protected $hooks = [];
 
     /**
      * The container's method bindings.
@@ -44,27 +55,31 @@ class Container implements ArrayAccess, ContainerInterface
 
     /**
      * 绑定
+     *
      * @param $abstract
      * @param null $concrete
      * @param bool $shared
+     *
+     * @return void
      */
-	public function bind($abstract, $concrete = null, $shared = false)
-	{
+    public function bind($abstract, $concrete = null, $shared = false)
+    {
         $this->dropStale($abstract);
 
-		if (is_null($concrete)) $concrete = $abstract;
+        if (is_null($concrete)) $concrete = $abstract;
 
-		if (! $concrete instanceof Closure) {
-			$concrete = $this->getClosure($abstract, $concrete);
-		}
+        if (! $concrete instanceof Closure) {
+            $concrete = $this->getClosure($abstract, $concrete);
+        }
 
-		$this->bindings[$abstract] = compact('concrete', 'shared');
-	}
+        $this->bindings[$abstract] = compact('concrete', 'shared');
+    }
 
     /**
      * Drop all of the stale instances and aliases.
      *
      * @param  string  $abstract
+     *
      * @return void
      */
     protected function dropStale($abstract)
@@ -74,19 +89,23 @@ class Container implements ArrayAccess, ContainerInterface
 
     /**
      * 单例绑定
+     *
      * @param $abstract
      * @param null $concrete
+     *
+     * @return void
      */
     public function singleton($abstract, $concrete = null)
     {
         $this->bind($abstract, $concrete, true);
-	}
+    }
 
     /**
      * 注册一个实例到容器上
      *
      * @param  string  $abstract
      * @param  mixed   $instance
+     *
      * @return $this
      */
     public function instance($abstract, $instance)
@@ -100,59 +119,111 @@ class Container implements ArrayAccess, ContainerInterface
 
     /**
      * 设置别名
+     *
      * @param $alias
      * @param $abstract
+     *
+     * @return void
      */
     public function alias($alias, $abstract)
     {
         $this->aliases[$alias] = $abstract;
-	}
+    }
+
+    /**
+     * Set a hook to an abstract
+     * 
+     * @param $abstract
+     * @param Callbale $callback
+     *
+     * @return void
+     */
+    public function hook($abstract, Callable $callback)
+    {
+        $this->hooks[$abstract] = $callback;
+    }
 
     /**
      * 获取Closure
+     *
      * @param $concrete
+     *
      * @return Closure
      */
-	protected function getClosure($abstract, $concrete)
-	{
-		return function ($container) use ($abstract, $concrete) {
+    protected function getClosure($abstract, $concrete)
+    {
+        return function ($container) use ($abstract, $concrete) {
             if ($abstract == $concrete) {
                 return $container->build($concrete);
             }
 
-			return $container->resolve($concrete);	
-		};
-	}
+            return $container->resolve($concrete);  
+        };
+    }
 
     /**
-     * 从容器中resolve传入的类型
+     * Resolve an abstract
+     * 
      * @param $abstract
+     *
      * @return mixed|object
+     *
      * @throws Exception
      */
-	protected function resolve($abstract)
-	{
-	    $abstract = $this->ifAlias($abstract);
+    protected function resolve($abstract)
+    {
+        $abstract = $this->ifAlias($abstract);
         $concrete = $this->getConcrete($abstract);
 
         // Return instance if singleton.
         if (isset($this->instances[$abstract])) {
-            return $this->instances[$abstract];
+            $instance = $this->instances[$abstract];
+            
+            // hook
+            if (isset($this->hooks[$abstract])) {
+                $instance = $this->executeHook($instance, $this->hooks[$abstract]);
+            }
+            
+            return $instance;
         }
 
         $object = $this->build($concrete);
 
+        // hook
+        if (isset($this->hooks[$abstract])) {
+            $object = $this->executeHook($object, $this->hooks[$abstract]);
+        }
+
+        // Save singleton instance.
         if ($this->isShared($abstract)) {
             $this->instances[$abstract] = $object;
         }
 
         return $object;
-	}
+    }
+
+    /**
+     * Execute hook callback.
+     * 
+     * @param $instance
+     * @param callable $callback
+     *
+     * @return mixed
+     */
+    protected function executeHook($instance, Callable $callback)
+    {
+        $hooked = call_user_func($callback, $instance, $this);
+        
+        return $hooked ?? $instance;
+    }
 
     /**
      * 实例化一个concrete
+     *
      * @param $concrete
+     *
      * @return mixed|object
+     *
      * @throws \ReflectionException
      */
     protected function build($concrete)
@@ -178,11 +249,13 @@ class Container implements ArrayAccess, ContainerInterface
         $dependencies = $this->resolveDependencies($parameters);
 
         return $reflector->newInstanceArgs($dependencies);
-	}
+    }
 
     /**
      * 从别名获取abstract
+     *
      * @param $alias
+     *
      * @return mixed
      */
     protected function ifAlias($alias)
@@ -194,7 +267,9 @@ class Container implements ArrayAccess, ContainerInterface
 
     /**
      * 获取concrete
+     *
      * @param $abstract
+     *
      * @return mixed
      */
     protected function getConcrete($abstract)
@@ -204,11 +279,13 @@ class Container implements ArrayAccess, ContainerInterface
         }
 
         return $abstract;
-	}
+    }
 
     /**
      * 是否单例
+     *
      * @param $abstract
+     *
      * @return bool
      */
     protected function isShared($abstract)
@@ -216,48 +293,55 @@ class Container implements ArrayAccess, ContainerInterface
         return isset($this->instances[$abstract]) || (
             isset($this->bindings[$abstract]['shared']) && $this->bindings[$abstract]['shared'] === true
         );
-	}
+    }
 
     /**
      * 解决依赖的参数
+     *
      * @param array $parameters
+     *
      * @return array
+     *
      * @throws \ReflectionException
      */
-	protected function resolveDependencies(array $parameters)
-	{
-		$dependencies = [];
+    protected function resolveDependencies(array $parameters)
+    {
+        $dependencies = [];
 
-		foreach ($parameters as $parameter) {
-			$class = $parameter->getClass();
+        foreach ($parameters as $parameter) {
+            $class = $parameter->getClass();
 
-			$dependencies[] = is_null($class)
-								? $this->getParameterDefaultValue($parameter)
-								: $this->resolve($class->name);
-		}
+            $dependencies[] = is_null($class)
+                                ? $this->getParameterDefaultValue($parameter)
+                                : $this->resolve($class->name);
+        }
 
-		return $dependencies;
-	}
+        return $dependencies;
+    }
 
     /**
      * 获取参数默认值
+     *
      * @param $parameter
+     *
      * @return mixed
+     *
      * @throws Exception
      */
-	protected function getParameterDefaultValue($parameter)
-	{
-		if ($parameter->isDefaultValueAvailable()) {
-		    return $parameter->getDefaultValue();
-		}
+    protected function getParameterDefaultValue($parameter)
+    {
+        if ($parameter->isDefaultValueAvailable()) {
+            return $parameter->getDefaultValue();
+        }
 
-		throw new Exception("[\$$parameter->name]参数没有默认值, 无法解决依赖关系");
-	}
+        throw new Exception("[\$$parameter->name]参数没有默认值, 无法解决依赖关系");
+    }
 
     /**
      * Determine if the container has a method binding.
      *
      * @param  string  $method
+     *
      * @return bool
      */
     public function hasMethodBinding($method)
@@ -270,6 +354,7 @@ class Container implements ArrayAccess, ContainerInterface
      *
      * @param  array|string  $method
      * @param  \Closure  $callback
+     *
      * @return void
      */
     public function bindMethod($method, $callback)
@@ -281,6 +366,7 @@ class Container implements ArrayAccess, ContainerInterface
      * Get the method to be bound in class@method format.
      *
      * @param  array|string $method
+     *
      * @return string
      */
     protected function parseBindMethod($method)
@@ -296,6 +382,7 @@ class Container implements ArrayAccess, ContainerInterface
      * Determine if the given abstract type has been bound.
      *
      * @param  string  $abstract
+     *
      * @return bool
      */
     public function bound($abstract)
@@ -311,6 +398,7 @@ class Container implements ArrayAccess, ContainerInterface
      * @param  callable|string  $callback
      * @param  array  $parameters
      * @param  string|null  $defaultMethod
+     *
      * @return mixed
      */
     public function call($callback, array $parameters = [], $defaultMethod = null)
@@ -323,6 +411,7 @@ class Container implements ArrayAccess, ContainerInterface
      *
      * @param  string  $method
      * @param  mixed  $instance
+     *
      * @return mixed
      */
     public function callMethodBinding($method, $instance)
@@ -332,7 +421,9 @@ class Container implements ArrayAccess, ContainerInterface
 
     /**
      * 存放容器实例
+     *
      * @param $container
+     *
      * @return mixed
      */
     public static function setInstance($container)
@@ -342,6 +433,7 @@ class Container implements ArrayAccess, ContainerInterface
 
     /**
      * 获取容器实例
+     *
      * @return mixed
      */
     public static function getInstance()
@@ -355,64 +447,78 @@ class Container implements ArrayAccess, ContainerInterface
 
     /**
      * 从容器获得实例
+     *
      * @param string $abstract
+     *
      * @return mixed|object
+     *
      * @throws \ReflectionException
      */
-	public function get($abstract)
-	{
-		return $this->resolve($abstract);
-	}
+    public function get($abstract)
+    {
+        return $this->resolve($abstract);
+    }
 
     /**
      * abstract是否被绑定
+     *
      * @param string $id
+     *
      * @return bool
      */
-	public function has($id)
-	{
-		return isset($this->bindings[$id]) ||
+    public function has($id)
+    {
+        return isset($this->bindings[$id]) ||
                 isset($this->instances[$id]) ||
                 isset($this->aliases[$id]);
-	}
+    }
 
     /**
      * 从容器获得实例
+     *
      * @param mixed $offset
+     *
      * @return mixed|object
+     *
      * @throws \ReflectionException
      */
-	public function offsetGet($offset)
-	{
-		return $this->get($offset);
-	}
+    public function offsetGet($offset)
+    {
+        return $this->get($offset);
+    }
 
     /**
      * 删除绑定
+     *
      * @param mixed $offset
      */
-	public function offsetUnset($offset)
-	{
+    public function offsetUnset($offset)
+    {
         unset($this->bindings[$offset], $this->instances[$offset], $this->aliases[$offset]);
-	}
+    }
 
     /**
      * 绑定
+     *
      * @param mixed $offset
      * @param mixed $value
+     *
+     * @return void
      */
-	public function offsetSet($offset, $value)
-	{
-		return $this->bind($offset, $value);
-	}
+    public function offsetSet($offset, $value)
+    {
+        return $this->bind($offset, $value);
+    }
 
     /**
      * abstract是否被绑定
+     *
      * @param mixed $offset
+     *
      * @return bool
      */
-	public function offsetExists($offset)
-	{
-		return $this->has($offset);
+    public function offsetExists($offset)
+    {
+        return $this->has($offset);
     }
 }
